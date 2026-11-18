@@ -1,0 +1,37 @@
+package com.example.opspilot;
+
+import org.springframework.ai.chat.client.ChatClient;
+import org.springframework.ai.chat.metadata.Usage;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.boot.CommandLineRunner;
+import org.springframework.stereotype.Component;
+
+@Component
+class HelloChatClient implements CommandLineRunner {
+
+    private final ChatClient chatClient;
+
+    HelloChatClient(ChatClient.Builder builder) {   // Builder is auto-configured by the starter
+        this.chatClient = builder.build();
+    }
+
+    @Override
+    public void run(String... args) {
+        ChatResponse response = chatClient.prompt()
+                .user("A service returns 200 but clients see stale data. List 3 likely causes, ranked.")
+                .call()
+                .chatResponse();               // full response, not just .content()
+
+        Generation gen = response.getResult();
+        System.out.println("Text:          " + gen.getOutput().getText());
+        System.out.println("Finish reason: " + gen.getMetadata().getFinishReason());
+        System.out.println("Model:         " + response.getMetadata().getModel());
+
+        Usage usage = response.getMetadata().getUsage();
+        System.out.println("Prompt tokens:     " + usage.getPromptTokens());
+        System.out.println("Completion tokens: " + usage.getCompletionTokens());
+        System.out.println("Total tokens:      " + usage.getTotalTokens());
+        System.out.println("Native usage:      " + usage.getNativeUsage()); // Gemini's own object
+    }
+}

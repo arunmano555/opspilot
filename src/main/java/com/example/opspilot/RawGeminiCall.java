@@ -14,7 +14,7 @@ public class RawGeminiCall {
         }
         String model = "gemini-3.5-flash-lite";
         String body = """
-            {"contents":[{"parts":[{"text":"Explain HTTP 429 in one sentence."}]}]}
+            {"contents":[{"parts":[{"text":"A service returns 200 but clients see stale data. List 3 likely causes, ranked."}]}]}
             """;
 
         HttpRequest request = HttpRequest.newBuilder()
