@@ -1,35 +1,29 @@
-package com.example.opspilot; // ← use your package
+package com.arunmano.opspilot.experiments.phase1;
 
+import com.arunmano.opspilot.experiments.support.GeminiRaw;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Phase 1: what text costs in tokens (Gemini countTokens endpoint — free, no generation).
+ * Findings: UUIDs and stack traces are token-expensive; removing spaces increases the count.
+ * Run: ./mvnw spring-boot:run -Dspring-boot.run.profiles=tokens
+ */
 @Component
-@Profile("tokens") // runs only when the "tokens" profile is active
-public class TokenCounter implements CommandLineRunner {
+@Profile("tokens")
+class TokenCounter implements CommandLineRunner {
 
-    private static final String MODEL = "gemini-3.5-flash-lite";
-    private static final String URL =
-            "https://generativelanguage.googleapis.com/v1beta/models/" + MODEL + ":countTokens";
     private static final Pattern TOTAL = Pattern.compile("\"totalTokens\"\\s*:\\s*(\\d+)");
-
-    private final HttpClient http = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10)).build();
 
     @Override
     public void run(String... args) throws Exception {
-        String apiKey = System.getenv("GEMINI_API_KEY");
-
         // Roughly the same sentence in each form
         Map<String, String> samples = new LinkedHashMap<>();
         samples.put("Plain",    "The payment service is returning HTTP 503 errors because the database connection pool is exhausted.");
@@ -40,40 +34,20 @@ public class TokenCounter implements CommandLineRunner {
         for (var e : samples.entrySet()) {
             String text = e.getValue();
             int chars = text.codePointCount(0, text.length());
-            int tokens = countTokens(apiKey, text);
+            int tokens = countTokens(text);
             System.out.printf("%-8s chars=%4d  tokens=%4d  chars/token=%.2f%n",
                     e.getKey(), chars, tokens, (double) chars / tokens);
         }
     }
 
-    private int countTokens(String apiKey, String text) throws Exception {
-        String body = "{\"contents\":[{\"parts\":[{\"text\":" + json(text) + "}]}]}";
-        HttpRequest req = HttpRequest.newBuilder(URI.create(URL))
-                .timeout(Duration.ofSeconds(20))
-                .header("x-goog-api-key", apiKey)
-                .header("Content-Type", "application/json")
-                .POST(HttpRequest.BodyPublishers.ofString(body))
-                .build();
-        HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+    private int countTokens(String text) throws Exception {
+        String body = "{\"contents\":[{\"parts\":[{\"text\":" + GeminiRaw.jsonString(text) + "}]}]}";
+        HttpResponse<String> res = GeminiRaw.post("countTokens", body);
         if (res.statusCode() != 200) {
             throw new IllegalStateException(res.statusCode() + ": " + res.body());
         }
         Matcher m = TOTAL.matcher(res.body());
         if (!m.find()) throw new IllegalStateException("No totalTokens in: " + res.body());
         return Integer.parseInt(m.group(1));
-    }
-
-    // Minimal JSON string escaping, enough for these samples
-    private static String json(String s) {
-        StringBuilder sb = new StringBuilder("\"");
-        for (char c : s.toCharArray()) {
-            switch (c) {
-                case '"'  -> sb.append("\\\"");
-                case '\\' -> sb.append("\\\\");
-                case '\n' -> sb.append("\\n");
-                default   -> sb.append(c);
-            }
-        }
-        return sb.append('"').toString();
     }
 }
