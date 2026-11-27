@@ -1,4 +1,4 @@
-package com.example.opspilot;
+package com.arunmano.opspilot;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
